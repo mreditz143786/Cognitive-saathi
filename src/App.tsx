@@ -1,0 +1,1721 @@
+/**
+ * CognitiveSaathi — Frontend Application
+ * Problem Statement ID: 26003 (MDoNER)
+ * AI-Based Cognitive Gaming and Memory Assistance Platform for Elderly Dementia Patients in NER
+ */
+
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Home,
+  Sparkles,
+  Calendar,
+  Heart,
+  Settings,
+  LayoutDashboard,
+  Users,
+  User,
+  Bell,
+  FileText,
+  HeartPulse,
+  Mic,
+  WifiOff,
+  RefreshCw,
+  Gamepad2,
+  LogOut,
+} from 'lucide-react';
+import {
+  UserRole,
+  LanguageCode,
+  ConnectivityStatus,
+  TextScale,
+  GameDefinition,
+  RoutineTask,
+  ReminderItem,
+  GameSessionResult,
+  PatientProfile,
+  CaretakerProfile,
+  MemoryMoment,
+} from './types';
+import { translations } from './lib/i18n';
+import {
+  OfflineStore,
+  DEFAULT_PATIENT,
+  DEFAULT_GAMES,
+  DEFAULT_ROUTINE,
+  DEFAULT_REMINDERS,
+  DEFAULT_MEMORIES,
+  DEFAULT_RECENT_SESSIONS,
+} from './lib/offlineStore';
+import { FirestoreService } from './lib/firestoreService';
+import { Header } from './components/layout/Header';
+import { VoiceAssistantModal } from './components/voice/VoiceAssistantModal';
+import { VoicePackModal } from './components/voice/VoicePackModal';
+import { LoginScreen } from './components/auth/LoginScreen';
+import { PatientHome } from './components/patient/PatientHome';
+import { PatientActivities } from './components/patient/PatientActivities';
+import { PatientMyDay } from './components/patient/PatientMyDay';
+import { PatientMemories } from './components/patient/PatientMemories';
+import { PatientSettings } from './components/patient/PatientSettings';
+import { PatientMeProfile } from './components/patient/PatientMeProfile';
+import { GameContainer } from './components/games/GameContainer';
+import { CaregiverDashboard } from './components/caregiver/CaregiverDashboard';
+import { CaregiverReminders } from './components/caregiver/CaregiverReminders';
+import { CaregiverPatientDetail } from './components/caregiver/CaregiverPatientDetail';
+import { CaregiverReports } from './components/caregiver/CaregiverReports';
+import { CaregiverMeProfile } from './components/caregiver/CaregiverMeProfile';
+import { CaregiverMemoriesManager } from './components/caregiver/CaregiverMemoriesManager';
+import { CaregiverActivitiesView } from './components/caregiver/CaregiverActivitiesView';
+import { CaretakerRoutineManager } from './components/caregiver/CaretakerRoutineManager';
+import { AICaretakerCompanion } from './components/ai/AICaretakerCompanion';
+import { HealthcareDashboard } from './components/healthcare/HealthcareDashboard';
+import { AddPatientModal } from './components/caregiver/AddPatientModal';
+import { LinkPatientKeyModal } from './components/caregiver/LinkPatientKeyModal';
+import { LogoutConfirmModal } from './components/common/LogoutConfirmModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { Bot, Lock } from 'lucide-react';
+const Analytics = () => null;
+
+export default function App() {
+  // Authentication & Initial Role Selection Gate (Persistent across reloads)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    const session = OfflineStore.getAuthSession();
+    return Boolean(session);
+  });
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState<boolean>(false);
+
+  // Theme (Dark / Light Mode)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cognitive_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('cognitive_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  // Roles & View Navigation (Persisted per tab session across refreshes)
+  const [role, setRole] = useState<UserRole>(() => {
+    const session = OfflineStore.getAuthSession();
+    const tabState = OfflineStore.getTabNavigationState();
+    return tabState?.role || session?.role || 'PATIENT';
+  });
+  const [patientTab, setPatientTab] = useState<'home' | 'activities' | 'my_day' | 'memories' | 'me' | 'settings'>(() => {
+    const tabState = OfflineStore.getTabNavigationState();
+    if (tabState?.patientTab) return tabState.patientTab;
+    return 'home';
+  });
+  const [caregiverTab, setCaregiverTab] = useState<'dashboard' | 'activities' | 'memories' | 'routine' | 'reminders' | 'patient_detail' | 'reports' | 'me'>(() => {
+    const tabState = OfflineStore.getTabNavigationState();
+    if (tabState?.caregiverTab) return tabState.caregiverTab;
+    return 'dashboard';
+  });
+  const [activeGame, setActiveGame] = useState<GameDefinition | null>(() => {
+    const tabState = OfflineStore.getTabNavigationState();
+    if (tabState?.activeGameId) {
+      const found = DEFAULT_GAMES.find((g) => g.id === tabState.activeGameId);
+      return found || null;
+    }
+    return null;
+  });
+
+  // Automatically synchronize tab state to sessionStorage on every navigation/tab change
+  useEffect(() => {
+    if (isLoggedIn) {
+      OfflineStore.saveTabNavigationState({
+        role,
+        patientTab,
+        caregiverTab,
+        activeGameId: activeGame ? activeGame.id : null,
+      });
+    }
+  }, [isLoggedIn, role, patientTab, caregiverTab, activeGame]);
+
+  // Scroll isolation fix: reset scroll position whenever view, tab, or role changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const mainEl = document.getElementById('main-content-area');
+    if (mainEl) {
+      mainEl.scrollTop = 0;
+    }
+  }, [patientTab, caregiverTab, role, activeGame]);
+
+  // Caregiver Patient Registration & Link Modals
+  const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState<boolean>(false);
+  const [isLinkPatientModalOpen, setIsLinkPatientModalOpen] = useState<boolean>(false);
+
+  // Localization
+  const [lang, setLang] = useState<LanguageCode>('en');
+  const t = translations[lang];
+
+  // Accessibility & Display Preferences
+  const [textScale, setTextScale] = useState<TextScale>('normal');
+  const [highContrast, setHighContrast] = useState<boolean>(false);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
+  const [isVoicePackModalOpen, setIsVoicePackModalOpen] = useState<boolean>(false);
+  const [isAiCompanionOpen, setIsAiCompanionOpen] = useState<boolean>(false);
+
+  // Connectivity & Synchronization
+  const [connectivity, setConnectivity] = useState<ConnectivityStatus>('CONNECTED');
+
+  // Application Data & Local Offline Store
+  const [allPatients, setAllPatients] = useState<PatientProfile[]>(() => OfflineStore.getPatients());
+  const [activeCaretaker, setActiveCaretaker] = useState<CaretakerProfile | null>(() => {
+    const session = OfflineStore.getAuthSession();
+    if (session?.role === 'CAREGIVER' && session.caretakerId) {
+      const caretakers = OfflineStore.getCaretakers();
+      return caretakers.find((c) => c.id === session.caretakerId) || null;
+    }
+    return null;
+  });
+
+  // Filter patients belonging to active caregiver (or all if not caregiver)
+  const caregiverPatients = useMemo(() => {
+    if (!activeCaretaker) return (allPatients || []).filter(Boolean);
+    return (allPatients || []).filter(
+      (p) =>
+        p &&
+        (activeCaretaker.assignedPatientIds?.includes(p.id) ||
+          (p.linkedCaregiverKey &&
+            activeCaretaker.caregiverKey &&
+            p.linkedCaregiverKey.toUpperCase() === activeCaretaker.caregiverKey.toUpperCase()))
+    );
+  }, [allPatients, activeCaretaker]);
+
+  const [patient, setPatient] = useState<PatientProfile>(() => {
+    const session = OfflineStore.getAuthSession();
+    const activePatId = OfflineStore.getActivePatientId();
+    if (session?.role === 'CAREGIVER') {
+      let candidateId = session.patientId || activePatId;
+      if (!candidateId && session.caretakerId) {
+        const ct = OfflineStore.getCaretakers().find((c) => c.id === session.caretakerId);
+        if (ct?.assignedPatientIds && ct.assignedPatientIds.length > 0) {
+          candidateId = ct.assignedPatientIds[0];
+        }
+      }
+      if (candidateId) {
+        const found = OfflineStore.getPatient(candidateId);
+        if (found) return found;
+      }
+      if (session.caretakerId) {
+        const ct = OfflineStore.getCaretakers().find((c) => c.id === session.caretakerId);
+        if (ct?.caregiverKey) {
+          const matched = OfflineStore.getPatients().find(
+            (p) => p.linkedCaregiverKey?.toUpperCase() === ct.caregiverKey?.toUpperCase()
+          );
+          if (matched) return matched;
+        }
+      }
+      // Clean slate only if caregiver has truly no linked patients
+      return {
+        id: '',
+        fullName: '',
+        preferredName: '',
+        username: '',
+        age: 0,
+        region: '',
+        state: '',
+        preferredLanguage: 'en',
+        caregiverName: '',
+        caregiverPhone: '',
+        avatarUrl: '',
+        dailyStreak: 0,
+        todayCompletedCount: 0,
+      };
+    }
+    const patId = session?.patientId || activePatId;
+    if (patId) {
+      const found = OfflineStore.getPatient(patId);
+      if (found && found.id) return found;
+    }
+    const availablePatients = OfflineStore.getPatients();
+    if (availablePatients && availablePatients.length > 0) {
+      return availablePatients[0];
+    }
+    return {
+      id: '',
+      fullName: '',
+      preferredName: '',
+      username: '',
+      age: 0,
+      region: '',
+      state: '',
+      preferredLanguage: 'en',
+      caregiverName: '',
+      caregiverPhone: '',
+      avatarUrl: '',
+      dailyStreak: 0,
+      todayCompletedCount: 0,
+    };
+  });
+
+  const [routine, setRoutine] = useState<RoutineTask[]>(() => {
+    const session = OfflineStore.getAuthSession();
+    const activePatId = OfflineStore.getActivePatientId();
+    const pId = session?.patientId || activePatId;
+    if (pId) {
+      const stored = OfflineStore.getRoutine(pId);
+      if (stored && stored.length > 0) return stored;
+    }
+    return [];
+  });
+  const [reminders, setReminders] = useState<ReminderItem[]>(() => {
+    const session = OfflineStore.getAuthSession();
+    const activePatId = OfflineStore.getActivePatientId();
+    const pId = session?.patientId || activePatId;
+    if (pId) {
+      const stored = OfflineStore.getReminders(pId);
+      if (stored && stored.length > 0) return stored;
+    }
+    return DEFAULT_REMINDERS;
+  });
+  const [memories, setMemories] = useState<MemoryMoment[]>(() => {
+    const session = OfflineStore.getAuthSession();
+    const activePatId = OfflineStore.getActivePatientId();
+    const pId = session?.patientId || activePatId;
+    return OfflineStore.getMemories(pId);
+  });
+  const [sessions, setSessions] = useState<GameSessionResult[]>(() => {
+    const session = OfflineStore.getAuthSession();
+    const activePatId = OfflineStore.getActivePatientId();
+    const pId = session?.patientId || activePatId;
+    if (pId) {
+      const stored = OfflineStore.getSessions(pId);
+      if (stored && stored.length > 0) return stored;
+    }
+    return DEFAULT_RECENT_SESSIONS;
+  });
+
+  // Initialize data from local storage & register Service Worker
+  useEffect(() => {
+    const session = OfflineStore.getAuthSession();
+    if (session) {
+      if (session.role === 'PATIENT') {
+        const pId = session.patientId || OfflineStore.getActivePatientId();
+        if (pId) {
+          const found = OfflineStore.getPatient(pId);
+          if (found) {
+            setPatient(found);
+            const r = OfflineStore.getRoutine(found.id);
+            if (r && r.length > 0) setRoutine(r);
+            const rem = OfflineStore.getReminders(found.id);
+            if (rem && rem.length > 0) setReminders(rem);
+            setSessions(OfflineStore.getSessions(found.id));
+            setMemories(OfflineStore.getMemories(found.id));
+          } else {
+            FirestoreService.getPatient(pId).then((p) => {
+              if (p) {
+                OfflineStore.savePatient(p);
+                setPatient(p);
+                setRoutine(OfflineStore.getRoutine(p.id));
+                setReminders(OfflineStore.getReminders(p.id));
+              }
+            }).catch(() => {});
+          }
+        }
+      } else if (session.role === 'CAREGIVER') {
+        let currentC: CaretakerProfile | null = null;
+        if (session.caretakerId) {
+          const caretakers = OfflineStore.getCaretakers();
+          currentC = caretakers.find((c) => c.id === session.caretakerId) || null;
+          if (currentC) setActiveCaretaker(currentC);
+        }
+
+        const candidatePatientId =
+          session.patientId ||
+          OfflineStore.getActivePatientId() ||
+          (currentC?.assignedPatientIds && currentC.assignedPatientIds[0]);
+
+        if (candidatePatientId) {
+          let found = OfflineStore.getPatient(candidatePatientId);
+          if (found) {
+            setPatient(found);
+            const r = OfflineStore.getRoutine(found.id);
+            if (r && r.length > 0) setRoutine(r);
+            const rem = OfflineStore.getReminders(found.id);
+            if (rem && rem.length > 0) setReminders(rem);
+            setSessions(OfflineStore.getSessions(found.id));
+            setMemories(OfflineStore.getMemories(found.id));
+            return;
+          } else {
+            FirestoreService.getPatient(candidatePatientId).then((p) => {
+              if (p) {
+                OfflineStore.savePatient(p);
+                setPatient(p);
+                setRoutine(OfflineStore.getRoutine(p.id));
+                setReminders(OfflineStore.getReminders(p.id));
+                setSessions(OfflineStore.getSessions(p.id));
+                setMemories(OfflineStore.getMemories(p.id));
+              }
+            }).catch(() => {});
+            fetch(`/api/patients/${candidatePatientId}`)
+              .then((r) => r.json())
+              .then((p) => {
+                if (p && p.id) {
+                  OfflineStore.savePatient(p);
+                  setPatient((prev) => (prev.id ? prev : p));
+                  setRoutine(OfflineStore.getRoutine(p.id));
+                }
+              })
+              .catch(() => {});
+            return;
+          }
+        }
+
+        // Clean slate ONLY if caregiver truly has no patients assigned anywhere
+        const allP = OfflineStore.getPatients();
+        const hasLinkedP = currentC?.caregiverKey && allP.some(p => p.linkedCaregiverKey?.toUpperCase() === currentC!.caregiverKey!.toUpperCase());
+        if (!hasLinkedP && (!currentC || !currentC.assignedPatientIds || currentC.assignedPatientIds.length === 0)) {
+          setPatient({
+            id: '',
+            fullName: '',
+            preferredName: '',
+            username: '',
+            age: 0,
+            region: '',
+            state: '',
+            preferredLanguage: 'en',
+            caregiverName: currentC?.fullName || '',
+            caregiverPhone: currentC?.phone || '',
+            avatarUrl: '',
+            dailyStreak: 0,
+            todayCompletedCount: 0,
+            linkedCaregiverKey: currentC?.caregiverKey,
+          });
+          setRoutine([]);
+          setReminders([]);
+          setSessions([]);
+          setMemories([]);
+        }
+      }
+    }
+
+    // Initial online check
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setConnectivity('OFFLINE');
+    }
+
+    const handleOnline = () => {
+      setConnectivity('SYNCING');
+      setTimeout(() => {
+        OfflineStore.clearSyncQueue();
+        setConnectivity('CONNECTED');
+      }, 1500);
+    };
+
+    const handleOffline = () => {
+      setConnectivity('OFFLINE');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Register Service Worker if supported
+    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    }
+
+    const handleSyncEvent = () => {
+      setAllPatients(OfflineStore.getPatients());
+      const allC = OfflineStore.getCaretakers();
+      if (activeCaretaker) {
+        const refreshedC = allC.find((c) => c.id === activeCaretaker.id);
+        if (refreshedC) {
+          setActiveCaretaker(refreshedC);
+        }
+      }
+      const targetPId = patient?.id || OfflineStore.getActivePatientId();
+      if (targetPId) {
+        const refreshedP = OfflineStore.getPatient(targetPId);
+        if (refreshedP) {
+          setPatient(refreshedP);
+        }
+        setSessions(OfflineStore.getSessions(targetPId));
+        setRoutine(OfflineStore.getRoutine(targetPId));
+        setReminders(OfflineStore.getReminders(targetPId));
+        setMemories(OfflineStore.getMemories(targetPId));
+      }
+    };
+    window.addEventListener('cognitivesaathi_sync', handleSyncEvent);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('cognitivesaathi_sync', handleSyncEvent);
+    };
+  }, [activeCaretaker, role, patient.id]);
+
+  // Real-time Firestore Subscriptions for the active Patient (Memories, Routines, Reminders, Sessions, Profile)
+  useEffect(() => {
+    if (!patient || !patient.id) return;
+
+    // 1. Real-time patient profile updates (streak, caretaker link, etc.)
+    const unsubPatient = FirestoreService.listenToPatient(patient.id, (p) => {
+      if (p) {
+        setPatient((prev) => {
+          if (prev.id === p.id) {
+            return { ...prev, ...p };
+          }
+          return prev;
+        });
+        OfflineStore.savePatient(p);
+      }
+    });
+
+    // 2. Real-time Memory Moments
+    let hasInitMem = false;
+    const unsubMemories = FirestoreService.listenToMemories(patient.id, (realtimeMems) => {
+      if (realtimeMems && realtimeMems.length > 0) {
+        setMemories(realtimeMems);
+        OfflineStore.saveMemories(realtimeMems, patient.id);
+        hasInitMem = true;
+      } else if (!hasInitMem) {
+        hasInitMem = true;
+        const local = OfflineStore.getMemories(patient.id);
+        if (local && local.length > 0) {
+          local.forEach((m) => {
+            FirestoreService.addMemoryMoment(patient.id, m).catch(() => {});
+          });
+        }
+      } else {
+        setMemories([]);
+        OfflineStore.saveMemories([], patient.id);
+      }
+    });
+
+    // 3. Real-time Daily Routine Checklist
+    let hasInitRoutine = false;
+    const unsubRoutines = FirestoreService.listenToRoutines(patient.id, (realtimeRoutines) => {
+      if (realtimeRoutines && realtimeRoutines.length > 0) {
+        setRoutine(realtimeRoutines);
+        OfflineStore.saveRoutine(realtimeRoutines, patient.id);
+        hasInitRoutine = true;
+      } else if (!hasInitRoutine) {
+        hasInitRoutine = true;
+        const local = OfflineStore.getRoutine(patient.id);
+        if (local && local.length > 0) {
+          FirestoreService.saveAllRoutines(patient.id, local).catch(() => {});
+        }
+      }
+    });
+
+    // Server API routine sync as fast backup
+    fetch(`/api/routines/${patient.id}`)
+      .then((res) => res.json())
+      .then((serverRoutines) => {
+        if (Array.isArray(serverRoutines) && serverRoutines.length > 0) {
+          setRoutine((prev) => (prev.length === 0 ? serverRoutines : prev));
+          OfflineStore.saveRoutine(serverRoutines, patient.id);
+        }
+      })
+      .catch(() => {});
+
+    // 4. Real-time Reminders
+    let hasInitReminders = false;
+    const unsubReminders = FirestoreService.listenToReminders(patient.id, (realtimeReminders) => {
+      if (realtimeReminders && realtimeReminders.length > 0) {
+        setReminders(realtimeReminders);
+        OfflineStore.saveReminders(realtimeReminders, patient.id);
+        hasInitReminders = true;
+      } else if (!hasInitReminders) {
+        hasInitReminders = true;
+        const local = OfflineStore.getReminders(patient.id);
+        if (local && local.length > 0) {
+          local.forEach((r) => {
+            FirestoreService.updateReminderItem(patient.id, r).catch(() => {});
+          });
+        }
+      }
+    });
+
+    fetch(`/api/reminders/${patient.id}`)
+      .then((res) => res.json())
+      .then((serverReminders) => {
+        if (Array.isArray(serverReminders) && serverReminders.length > 0) {
+          setReminders((prev) => (prev.length === 0 ? serverReminders : prev));
+          OfflineStore.saveReminders(serverReminders, patient.id);
+        }
+      })
+      .catch(() => {});
+
+    // 5. Real-time Game Activity Sessions
+    const unsubSessions = FirestoreService.listenToSessions(patient.id, (realtimeSessions) => {
+      if (realtimeSessions && realtimeSessions.length > 0) {
+        const sorted = [...realtimeSessions].sort(
+          (a, b) => (b.completedAt || '').localeCompare(a.completedAt || '')
+        );
+        setSessions(sorted);
+      }
+    });
+
+    return () => {
+      unsubPatient();
+      unsubMemories();
+      unsubRoutines();
+      unsubReminders();
+      unsubSessions();
+    };
+  }, [patient?.id]);
+
+  // Real-time Firestore subscription for Caregiver (Auto-syncs assigned patients when patient links via Caregiver Key)
+  useEffect(() => {
+    if (!activeCaretaker || !activeCaretaker.id) return;
+
+    // Instantly register caregiver key mapping in Firestore & Server for cross-device linking
+    const cgKey = (activeCaretaker.caregiverKey || '').trim().toUpperCase();
+    if (cgKey) {
+      FirestoreService.registerCaregiverKeyMapping(cgKey, activeCaretaker).catch((e) => {
+        console.warn('Caregiver key Firestore registration error:', e);
+      });
+      fetch('/api/caretakers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activeCaretaker),
+      }).catch(() => {});
+    }
+
+    const unsubCaretaker = FirestoreService.listenToCaregiver(activeCaretaker.id, async (cg) => {
+      if (cg) {
+        setActiveCaretaker((prev) => (prev ? { ...prev, ...cg } : cg));
+        OfflineStore.addCaretaker(cg);
+
+        // Fetch all assigned patients from Firestore to ensure instant cross-device synchronization
+        if (cg.assignedPatientIds && cg.assignedPatientIds.length > 0) {
+          try {
+            const patientPromises = cg.assignedPatientIds.map((pId) => FirestoreService.getPatient(pId));
+            const fetchedList = await Promise.all(patientPromises);
+            const validPatients = fetchedList.filter(Boolean) as PatientProfile[];
+
+            if (validPatients.length > 0) {
+              validPatients.forEach((p) => OfflineStore.savePatient(p));
+              setAllPatients((prev) => {
+                const map = new Map<string, PatientProfile>();
+                (prev || []).forEach((p) => { if (p?.id) map.set(p.id, p); });
+                validPatients.forEach((p) => { if (p?.id) map.set(p.id, p); });
+                return Array.from(map.values());
+              });
+
+              // If current patient is not set, or caregiver was on empty state, auto-select the assigned patient
+              setPatient((current) => {
+                if (!current?.id || !cg.assignedPatientIds?.includes(current.id)) {
+                  const newest = validPatients[validPatients.length - 1];
+                  OfflineStore.setActivePatientId(newest.id);
+                  setRoutine(OfflineStore.getRoutine(newest.id));
+                  setReminders(OfflineStore.getReminders(newest.id));
+                  setSessions(OfflineStore.getSessions(newest.id));
+                  setMemories(OfflineStore.getMemories(newest.id));
+                  return newest;
+                }
+                return current;
+              });
+            }
+          } catch (e) {
+            console.warn('Error syncing caregiver patients from Firestore:', e);
+          }
+        }
+      }
+    });
+
+    return () => {
+      unsubCaretaker();
+    };
+  }, [activeCaretaker?.id, activeCaretaker?.caregiverKey]);
+
+  // Manual trigger for testing sync
+  const handleTriggerSync = () => {
+    setConnectivity('SYNCING');
+    setTimeout(() => {
+      OfflineStore.clearSyncQueue();
+      setSessions(OfflineStore.getSessions());
+      setConnectivity('CONNECTED');
+    }, 1200);
+  };
+
+  // Centralized Calendar-Day Streak Tracking & Activity Logging
+  const recordPatientAction = (patientId: string, actionType: 'GAME' | 'ROUTINE') => {
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toLocaleDateString('en-CA');
+
+    const p = OfflineStore.getPatient(patientId) || patient;
+    let currentStreak = p.dailyStreak || 0;
+    const lastActive = p.lastActiveDate;
+
+    // Streak update logic
+    if (!lastActive) {
+      currentStreak = 1;
+    } else if (lastActive === todayStr) {
+      // Already active today; retain current streak
+    } else if (lastActive === yesterdayStr) {
+      // Continued consecutive day; increment streak
+      currentStreak += 1;
+    } else {
+      // Gap day detected; reset to 1
+      currentStreak = 1;
+    }
+
+    const updatedPatient: PatientProfile = {
+      ...p,
+      dailyStreak: currentStreak,
+      lastActiveDate: todayStr,
+      streakUpdatedDate: todayStr,
+      completedTodayCount: (lastActive === todayStr ? (p.completedTodayCount || p.todayCompletedCount || 0) : 0) + 1,
+      todayCompletedCount: (lastActive === todayStr ? (p.todayCompletedCount || 0) : 0) + 1,
+    };
+
+    setPatient(updatedPatient);
+    OfflineStore.savePatient(updatedPatient);
+    fetch(`/api/patients/${patientId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedPatient),
+    }).catch(() => {});
+    if ((window as any).FirestoreService) {
+      (window as any).FirestoreService.updatePatient(patientId, updatedPatient).catch(() => {});
+    }
+    FirestoreService.updatePatient(patientId, updatedPatient).catch(() => {});
+
+    // Broadcast sync event to caregivers and subscribers
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cognitivesaathi_sync'));
+    }
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patientId,
+        patient: updatedPatient,
+      }),
+    }).catch(() => {});
+  };
+
+  // Centralized Routine Updates (Caregiver & Patient with cloud and server sync)
+  const handleUpdateRoutine = (newRoutine: RoutineTask[], targetPatientId?: string) => {
+    const pId = targetPatientId || patient?.id || OfflineStore.getActivePatientId();
+    setRoutine(newRoutine);
+    if (pId) {
+      OfflineStore.saveRoutine(newRoutine, pId);
+      FirestoreService.saveAllRoutines(pId, newRoutine).catch((err) => {
+        console.warn('Error saving routines to Firestore:', err);
+      });
+      fetch(`/api/routines/${pId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRoutine),
+      }).catch((err) => {
+        console.warn('Error saving routines to server:', err);
+      });
+
+      // Broadcast sync event to caregiver dashboard
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cognitivesaathi_sync'));
+      }
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: pId,
+          routines: newRoutine,
+        }),
+      }).catch(() => {});
+    } else {
+      OfflineStore.saveRoutine(newRoutine);
+    }
+  };
+
+  // Sync HTML lang attribute for regional font rendering
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+    }
+  }, [lang]);
+
+  // Routine Checklist Toggle & Patient Self-Management
+  const handleToggleRoutineTask = (taskId: string) => {
+    const updated = routine.map((r) =>
+      r.id === taskId ? { ...r, completed: !r.completed } : r
+    );
+    handleUpdateRoutine(updated);
+    if (patient && patient.id) {
+      const completedTask = updated.find((r) => r.id === taskId && r.completed);
+      if (completedTask) {
+        recordPatientAction(patient.id, 'ROUTINE');
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cognitivesaathi_sync'));
+      }
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: patient.id,
+          routines: updated,
+          patient,
+        }),
+      }).catch(() => {});
+    }
+  };
+
+  const handleAddPatientTask = (task: RoutineTask) => {
+    const updated = [...routine, task];
+    handleUpdateRoutine(updated);
+  };
+
+  const handleDeleteRoutineTask = (taskId: string) => {
+    const updated = routine.filter((r) => r.id !== taskId);
+    handleUpdateRoutine(updated);
+  };
+
+  // Patient Key Updates (registered across client, Firestore, and backend DB)
+  const handleUpdatePatientKey = async (newKey: string) => {
+    if (!patient || !patient.id) return;
+    const cleanKey = newKey.trim().toUpperCase();
+    if (!cleanKey) return;
+
+    const updatedPatient: PatientProfile = {
+      ...patient,
+      patientKey: cleanKey,
+    };
+    setPatient(updatedPatient);
+    OfflineStore.savePatient(updatedPatient);
+
+    FirestoreService.registerPatientKeyMapping(cleanKey, updatedPatient).catch((err) => {
+      console.warn('Error registering key mapping in Firestore:', err);
+    });
+    FirestoreService.updatePatient(patient.id, { patientKey: cleanKey }).catch((err) => {
+      console.warn('Error updating patientKey in Firestore:', err);
+    });
+    fetch(`/api/patients/${patient.id}/key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: cleanKey }),
+    }).catch(() => {});
+  };
+
+  // Reminders Toggle & Management
+  const handleToggleReminder = (remId: string) => {
+    const updated = reminders.map((rem) =>
+      rem.id === remId ? { ...rem, completedToday: !rem.completedToday } : rem
+    );
+    setReminders(updated);
+    OfflineStore.saveReminders(updated);
+    const targetRem = updated.find((r) => r.id === remId);
+    if (patient && patient.id && targetRem) {
+      FirestoreService.updateReminderItem(patient.id, targetRem).catch((err) => {
+        console.warn('Error syncing reminder to Firestore:', err);
+      });
+    }
+  };
+
+  const handleAddReminder = (item: ReminderItem) => {
+    const updated = [item, ...reminders];
+    setReminders(updated);
+    OfflineStore.saveReminders(updated);
+    if (patient && patient.id) {
+      FirestoreService.updateReminderItem(patient.id, item).catch((err) => {
+        console.warn('Error adding reminder to Firestore:', err);
+      });
+    }
+  };
+
+  const handleToggleReminderEnabled = (id: string) => {
+    const updated = reminders.map((r) =>
+      r.id === id ? { ...r, enabled: !r.enabled } : r
+    );
+    setReminders(updated);
+    OfflineStore.saveReminders(updated);
+    const targetRem = updated.find((r) => r.id === id);
+    if (patient && patient.id && targetRem) {
+      FirestoreService.updateReminderItem(patient.id, targetRem).catch((err) => {
+        console.warn('Error updating reminder in Firestore:', err);
+      });
+    }
+  };
+
+  const handleDeleteReminder = (id: string) => {
+    const updated = reminders.filter((r) => r.id !== id);
+    setReminders(updated);
+    OfflineStore.saveReminders(updated);
+    if (patient && patient.id) {
+      FirestoreService.deleteReminderItem(patient.id, id).catch((err) => {
+        console.warn('Error deleting reminder from Firestore:', err);
+      });
+    }
+  };
+
+  // Memory Moments Handlers (Available for both Caregiver and Patient)
+  const handleAddMemory = (newMem: MemoryMoment) => {
+    const updated = OfflineStore.addMemory(newMem, patient.id);
+    setMemories(updated);
+    if (patient && patient.id) {
+      FirestoreService.addMemoryMoment(patient.id, newMem).catch((err) => {
+        console.warn('Error saving memory moment to Firestore:', err);
+      });
+    }
+  };
+
+  const handleDeleteMemory = (id: string) => {
+    const updated = OfflineStore.deleteMemory(id, patient.id);
+    setMemories(updated);
+    if (patient && patient.id) {
+      FirestoreService.deleteMemoryMoment(patient.id, id).catch((err) => {
+        console.warn('Error deleting memory moment from Firestore:', err);
+      });
+    }
+  };
+
+  // Game Launcher
+  const handleStartGame = (gameId: string) => {
+    const customGames = OfflineStore.getCustomGames(patient?.id || '');
+    const allGames = [...DEFAULT_GAMES, ...customGames];
+    const g = allGames.find(
+      (item) => item.id === gameId || item.id.toLowerCase() === gameId.toLowerCase()
+    );
+    if (g) {
+      setActiveGame(g);
+    } else if (gameId.toLowerCase().includes('tile')) {
+      const tileGame = DEFAULT_GAMES.find((item) => item.id === 'memory-tiles');
+      if (tileGame) setActiveGame(tileGame);
+    }
+  };
+
+  const handleExitGame = () => {
+    setActiveGame(null);
+  };
+
+  const handleSessionRecorded = (session: GameSessionResult) => {
+    OfflineStore.addSession(session);
+    setSessions((prev) => [session, ...prev]);
+    if (patient && patient.id) {
+      recordPatientAction(patient.id, 'GAME');
+      FirestoreService.recordGameSession(patient.id, session).catch((err) => {
+        console.warn('Error recording game session to Firestore:', err);
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cognitivesaathi_sync'));
+      }
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: patient.id,
+          session,
+          sessions: [session, ...sessions],
+          patient,
+        }),
+      }).catch(() => {});
+    }
+  };
+
+  // Dynamic Text Scaling classes applied to container
+  const getTextScaleClass = () => {
+    switch (textScale) {
+      case 'large':
+        return 'text-lg [&_p]:text-lg [&_h2]:text-3xl [&_h3]:text-2xl [&_button]:text-base';
+      case 'extralarge':
+        return 'text-xl [&_p]:text-xl [&_h2]:text-4xl [&_h3]:text-3xl [&_button]:text-lg';
+      case 'normal':
+      default:
+        return 'text-base';
+    }
+  };
+
+  // Direct role switching (Security PIN removed per user request)
+  const handleRequestUnlockCaregiver = (targetRole: UserRole = 'CAREGIVER') => {
+    setRole(targetRole);
+    if (targetRole === 'CAREGIVER') {
+      setCaregiverTab('dashboard');
+    }
+    setActiveGame(null);
+    const session = OfflineStore.getAuthSession();
+    if (session) {
+      session.role = targetRole;
+      OfflineStore.saveAuthSession(session);
+    }
+    OfflineStore.saveTabNavigationState({
+      role: targetRole,
+      patientTab: 'home',
+      caregiverTab: 'dashboard',
+      activeGameId: null,
+    });
+  };
+
+  const handleLockToPatient = () => {
+    setRole('PATIENT');
+    setPatientTab('home');
+    setActiveGame(null);
+    const session = OfflineStore.getAuthSession();
+    if (session) {
+      session.role = 'PATIENT';
+      OfflineStore.saveAuthSession(session);
+    }
+    OfflineStore.saveTabNavigationState({
+      role: 'PATIENT',
+      patientTab: 'home',
+      caregiverTab: 'dashboard',
+      activeGameId: null,
+    });
+  };
+
+  const handleOpenDashboard = () => {
+    setRole('CAREGIVER');
+    setCaregiverTab('dashboard');
+    setActiveGame(null);
+    const session = OfflineStore.getAuthSession();
+    if (session) {
+      session.role = 'CAREGIVER';
+      OfflineStore.saveAuthSession(session);
+    }
+    OfflineStore.saveTabNavigationState({
+      role: 'CAREGIVER',
+      patientTab: 'home',
+      caregiverTab: 'dashboard',
+      activeGameId: null,
+    });
+  };
+
+  const handleSaveNewPatient = (newPatient: PatientProfile) => {
+    OfflineStore.addPatient(newPatient);
+    if (activeCaretaker) {
+      const updatedC = {
+        ...activeCaretaker,
+        assignedPatientIds: Array.from(new Set([...(activeCaretaker.assignedPatientIds || []), newPatient.id])),
+      };
+      OfflineStore.addCaretaker(updatedC);
+      setActiveCaretaker(updatedC);
+    }
+    const updatedPatients = OfflineStore.getPatients();
+    setAllPatients(updatedPatients);
+    handleSelectPatient(newPatient);
+  };
+
+  const handleSelectPatient = (selectedP: PatientProfile) => {
+    if (!selectedP) return;
+    setPatient(selectedP);
+    if (selectedP.id) {
+      OfflineStore.setActivePatientId(selectedP.id);
+      const session = OfflineStore.getAuthSession();
+      if (session) {
+        OfflineStore.saveAuthSession({ ...session, patientId: selectedP.id });
+      }
+      setRoutine(OfflineStore.getRoutine(selectedP.id));
+      setMemories(OfflineStore.getMemories(selectedP.id));
+      setSessions(OfflineStore.getSessions(selectedP.id));
+      setReminders(OfflineStore.getReminders(selectedP.id));
+    }
+  };
+
+  const handleUpdatePatient = (updated: PatientProfile) => {
+    OfflineStore.savePatient(updated);
+    setPatient(updated);
+    setAllPatients(OfflineStore.getPatients());
+    if (updated.id) {
+      FirestoreService.updatePatient(updated.id, updated).catch((err) => {
+        console.warn('Error updating patient in Firestore:', err);
+      });
+    }
+  };
+
+  const handleDeletePatient = (patientId: string) => {
+    if (role === 'PATIENT') {
+      // Patient deleted their own profile
+      OfflineStore.unlinkCaregiver(patientId, 'PATIENT', patient.fullName);
+      OfflineStore.deletePatient(patientId);
+      fetch(`/api/patients/${patientId}`, { method: 'DELETE' }).catch(() => {});
+      FirestoreService.deletePatient(patientId).catch(() => {});
+      OfflineStore.clearAuthSession();
+      setIsLoggedIn(false);
+      return;
+    }
+
+    // Caregiver deleted/removed patient from their circle
+    OfflineStore.unlinkCaregiver(patientId, 'CAREGIVER', activeCaretaker?.fullName, activeCaretaker?.id);
+    OfflineStore.deletePatient(patientId);
+    fetch(`/api/patients/${patientId}`, { method: 'DELETE' }).catch(() => {});
+    FirestoreService.deletePatient(patientId).catch(() => {});
+
+    let updatedC = activeCaretaker;
+    if (activeCaretaker) {
+      updatedC = {
+        ...activeCaretaker,
+        assignedPatientIds: (activeCaretaker.assignedPatientIds || []).filter((id) => id !== patientId),
+      };
+      OfflineStore.addCaretaker(updatedC);
+      setActiveCaretaker(updatedC);
+    }
+    const updated = OfflineStore.getPatients();
+    setAllPatients(updated);
+    const remainingForCaregiver = updated.filter(
+      (p) =>
+        updatedC?.assignedPatientIds?.includes(p.id) ||
+        (p.linkedCaregiverKey &&
+          updatedC?.caregiverKey &&
+          p.linkedCaregiverKey.toUpperCase() === updatedC.caregiverKey.toUpperCase())
+    );
+    if (remainingForCaregiver.length > 0) {
+      const nextP = remainingForCaregiver[0];
+      setPatient(nextP);
+      OfflineStore.setActivePatientId(nextP.id);
+      setRoutine(OfflineStore.getRoutine(nextP.id));
+      setMemories(OfflineStore.getMemories(nextP.id));
+      setSessions(OfflineStore.getSessions(nextP.id));
+      setReminders(OfflineStore.getReminders(nextP.id));
+    } else {
+      setPatient({
+        id: '',
+        fullName: '',
+        preferredName: '',
+        username: '',
+        age: 0,
+        region: '',
+        state: '',
+        preferredLanguage: 'en',
+        caregiverName: activeCaretaker?.fullName || '',
+        caregiverPhone: activeCaretaker?.phone || '',
+        avatarUrl: '',
+        dailyStreak: 0,
+        todayCompletedCount: 0,
+        linkedCaregiverKey: activeCaretaker?.caregiverKey,
+      });
+      OfflineStore.setActivePatientId('');
+      setRoutine([]);
+      setMemories([]);
+      setSessions([]);
+      setReminders([]);
+    }
+  };
+
+  const handleConfirmLogout = () => {
+    OfflineStore.clearAuthSession();
+    OfflineStore.clearTabNavigationState();
+    setIsLoggedIn(false);
+    setActiveGame(null);
+    setPatientTab('home');
+    setCaregiverTab('dashboard');
+    setIsLogoutConfirmOpen(false);
+  };
+
+  // If user has not selected role/logged in yet, display Welcome & Role Selection Gate first
+  if (!isLoggedIn) {
+    return (
+      <LoginScreen
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLoginPatient={(loggedInPatient) => {
+          OfflineStore.saveTabNavigationState({
+            role: 'PATIENT',
+            patientTab: 'home',
+            caregiverTab: 'dashboard',
+            activeGameId: null,
+          });
+          setPatient(loggedInPatient);
+          setAllPatients(OfflineStore.getPatients());
+          setRoutine(OfflineStore.getRoutine(loggedInPatient.id));
+          setReminders(OfflineStore.getReminders(loggedInPatient.id));
+          setMemories(OfflineStore.getMemories(loggedInPatient.id));
+          setSessions(OfflineStore.getSessions(loggedInPatient.id));
+          setRole('PATIENT');
+          setPatientTab('home');
+          setActiveGame(null);
+          setIsLoggedIn(true);
+        }}
+        onLoginCaregiver={(caretaker, selectedPatient) => {
+          OfflineStore.saveTabNavigationState({
+            role: 'CAREGIVER',
+            patientTab: 'home',
+            caregiverTab: 'dashboard',
+            activeGameId: null,
+          });
+          setActiveCaretaker(caretaker);
+          setAllPatients(OfflineStore.getPatients());
+          if (selectedPatient) {
+            setPatient(selectedPatient);
+            setRoutine(OfflineStore.getRoutine(selectedPatient.id));
+            setReminders(OfflineStore.getReminders(selectedPatient.id));
+            setMemories(OfflineStore.getMemories(selectedPatient.id));
+            setSessions(OfflineStore.getSessions(selectedPatient.id));
+          } else {
+            // Clean slate for new caregiver: no pre-loaded patient, reports, or data
+            setPatient({
+              id: '',
+              fullName: '',
+              preferredName: '',
+              username: '',
+              age: 0,
+              region: '',
+              state: '',
+              preferredLanguage: 'en',
+              caregiverName: caretaker.fullName,
+              caregiverPhone: caretaker.phone,
+              avatarUrl: '',
+              dailyStreak: 0,
+              todayCompletedCount: 0,
+              linkedCaregiverKey: caretaker.caregiverKey,
+            });
+            setRoutine([]);
+            setReminders([]);
+            setMemories([]);
+            setSessions([]);
+          }
+          setRole('CAREGIVER');
+          setCaregiverTab('dashboard');
+          setActiveGame(null);
+          setIsLoggedIn(true);
+        }}
+        lang={lang}
+        onLangChange={setLang}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`min-h-screen flex flex-col transition-colors duration-200 ${
+        highContrast ? 'bg-amber-50/20 text-stone-950 font-medium' : 'bg-[#FBF9F5] dark:bg-[#0D1117] text-[#292524] dark:text-[#E6EDF3]'
+      } ${getTextScaleClass()}`}
+    >
+      {/* Universal Header Shell */}
+      <Header
+        currentRole={role}
+        onRoleChange={(newRole) => {
+          if (newRole === 'PATIENT') {
+            handleLockToPatient();
+          } else if (role === 'PATIENT') {
+            handleRequestUnlockCaregiver(newRole);
+          } else {
+            setRole(newRole);
+            setActiveGame(null);
+          }
+        }}
+        onRequestUnlockCaregiver={handleRequestUnlockCaregiver}
+        onOpenDashboard={handleOpenDashboard}
+        isViewingDashboard={role === 'CAREGIVER' && caregiverTab === 'dashboard'}
+        lang={lang}
+        onLangChange={setLang}
+        connectivity={connectivity}
+        onSyncTrigger={handleTriggerSync}
+        onOpenVoice={() => setIsVoiceModalOpen(true)}
+        onOpenVoicePack={() => setIsVoicePackModalOpen(true)}
+        textScale={textScale}
+        onTextScaleChange={setTextScale}
+        patientName={patient.fullName}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogout={() => setIsLogoutConfirmOpen(true)}
+      />
+
+      {/* Offline Toast Banner if disconnected */}
+      {connectivity === 'OFFLINE' && (
+        <div className="bg-amber-500 text-stone-950 px-4 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2 max-w-5xl mx-auto w-full">
+            <WifiOff className="w-4 h-4 shrink-0" />
+            <span>{t.offlineNotice}</span>
+            <button
+              onClick={handleTriggerSync}
+              className="ml-auto underline font-bold hover:text-stone-800"
+            >
+              Test Reconnect
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <main
+        id="main-content-area"
+        className={`flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 ${
+          role === 'PATIENT' && !activeGame ? 'pb-36 sm:pb-40' : 'pb-16'
+        }`}
+      >
+        {/* If patient is actively playing a cognitive game, render GameContainer directly */}
+        {activeGame ? (
+          <GameContainer
+            game={activeGame}
+            lang={lang}
+            patient={patient}
+            onExit={handleExitGame}
+            onSessionRecorded={handleSessionRecorded}
+          />
+        ) : (
+          <>
+            {/* PATIENT ROLE EXPERIENCE */}
+            {role === 'PATIENT' && (
+              <>
+                {patientTab === 'home' && (
+                  <PatientHome
+                    patient={patient}
+                    lang={lang}
+                    primaryGame={DEFAULT_GAMES[0]}
+                    onStartGame={handleStartGame}
+                    onNavigateTab={(tab) => setPatientTab(tab as any)}
+                    routine={routine}
+                    onAddTask={handleAddPatientTask}
+                    reminders={reminders}
+                    onOpenAiCompanion={() => setIsAiCompanionOpen(true)}
+                  />
+                )}
+
+                {patientTab === 'activities' && (
+                  <PatientActivities
+                    games={DEFAULT_GAMES}
+                    lang={lang}
+                    onSelectGame={handleStartGame}
+                  />
+                )}
+
+                {patientTab === 'my_day' && (
+                  <PatientMyDay
+                    routine={routine}
+                    onToggleTask={handleToggleRoutineTask}
+                    onAddTask={handleAddPatientTask}
+                    onDeleteTask={handleDeleteRoutineTask}
+                    reminders={reminders}
+                    onToggleReminder={handleToggleReminder}
+                    lang={lang}
+                  />
+                )}
+
+                {patientTab === 'memories' && (
+                  <PatientMemories
+                    memories={memories}
+                    lang={lang}
+                    onAddMemory={handleAddMemory}
+                    patientId={patient?.id}
+                  />
+                )}
+
+                {(patientTab === 'me' || patientTab === 'settings') && (
+                  <PatientMeProfile
+                    patient={patient}
+                    lang={lang}
+                    onLangChange={setLang}
+                    textScale={textScale}
+                    onTextScaleChange={setTextScale}
+                    voiceEnabled={voiceEnabled}
+                    onToggleVoice={() => setVoiceEnabled(!voiceEnabled)}
+                    highContrast={highContrast}
+                    onToggleHighContrast={() => setHighContrast(!highContrast)}
+                    onOpenCaregiverDashboard={handleOpenDashboard}
+                    onUpdatePatient={handleUpdatePatient}
+                    onDeletePatient={handleDeletePatient}
+                    onLogout={() => setIsLogoutConfirmOpen(true)}
+                    completedRoutineCount={routine.filter((r) => r.completed).length}
+                    totalRoutineCount={routine.length}
+                    sessions={sessions}
+                    routines={routine}
+                  />
+                )}
+              </>
+            )}
+
+            {/* CAREGIVER ROLE EXPERIENCE */}
+            {role === 'CAREGIVER' && (
+              <div className="space-y-6">
+                {/* Caregiver Navigation Bar - Multi-page organized layout */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 dark:border-stone-800 pb-3">
+                  <button
+                    onClick={() => setCaregiverTab('dashboard')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
+                      caregiverTab === 'dashboard'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span>{t.navDashboard}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCaregiverTab('activities')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
+                      caregiverTab === 'activities'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <Gamepad2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    <span>Memory Workout</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCaregiverTab('memories')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
+                      caregiverTab === 'memories'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <Heart className="w-4 h-4 text-rose-500 fill-current" />
+                    <span>Memories & Albums</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCaregiverTab('routine')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
+                      caregiverTab === 'routine'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Manage Routines</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCaregiverTab('reminders')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
+                      caregiverTab === 'reminders'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span>Manage Reminders</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCaregiverTab('patient_detail')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
+                      caregiverTab === 'patient_detail'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Patient Profile & History</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCaregiverTab('reports')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition cursor-pointer ${
+                      caregiverTab === 'reports'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Clinical Reports</span>
+                  </button>
+
+                  <button
+                    id="caregiver-nav-me-btn"
+                    onClick={() => setCaregiverTab('me')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition cursor-pointer ${
+                      caregiverTab === 'me'
+                        ? 'bg-teal-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#161B22] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <User className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    <span>Me</span>
+                  </button>
+
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      onClick={() => setIsLogoutConfirmOpen(true)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-semibold transition"
+                      title="Log Out to Welcome Screen"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Log Out</span>
+                    </button>
+                  </div>
+                </div>
+
+                <ErrorBoundary
+                  key={caregiverTab}
+                  fallbackTitle={`Caregiver ${
+                    caregiverTab === 'dashboard'
+                      ? 'Overview'
+                      : caregiverTab === 'patient_detail'
+                      ? 'Patient Profile'
+                      : caregiverTab === 'routine'
+                      ? 'Routine Manager'
+                      : caregiverTab === 'reminders'
+                      ? 'Reminders'
+                      : caregiverTab === 'memories'
+                      ? 'Memories'
+                      : caregiverTab === 'reports'
+                      ? 'Clinical Reports'
+                      : caregiverTab === 'activities'
+                      ? 'Memory Workout'
+                      : caregiverTab === 'me'
+                      ? 'Profile & Settings'
+                      : 'Portal'
+                  }`}
+                  onReset={() => setCaregiverTab('dashboard')}
+                >
+                  {caregiverTab === 'dashboard' && (
+                    <CaregiverDashboard
+                      patient={patient}
+                      allPatients={caregiverPatients}
+                      onSelectPatient={handleSelectPatient}
+                      onAddNewPatient={() => setIsAddPatientModalOpen(true)}
+                      onDeletePatient={handleDeletePatient}
+                      reminders={reminders}
+                      sessions={sessions}
+                      routine={routine}
+                      onUpdateRoutine={handleUpdateRoutine}
+                      lang={lang}
+                      onNavigateTab={(tab) => setCaregiverTab(tab as any)}
+                      caretaker={activeCaretaker}
+                    />
+                  )}
+
+                {caregiverTab === 'activities' && (
+                  <CaregiverActivitiesView
+                    patient={patient}
+                    games={DEFAULT_GAMES}
+                    sessions={sessions}
+                    lang={lang}
+                  />
+                )}
+
+                {caregiverTab === 'routine' && (
+                  <CaretakerRoutineManager
+                    patient={patient}
+                    routine={routine}
+                    onUpdateRoutine={handleUpdateRoutine}
+                  />
+                )}
+
+                {caregiverTab === 'patient_detail' && (
+                  <CaregiverPatientDetail
+                    patient={patient}
+                    allPatients={caregiverPatients}
+                    sessions={sessions}
+                    routine={routine}
+                    onUpdateRoutine={handleUpdateRoutine}
+                    lang={lang}
+                    onLockToPatient={handleLockToPatient}
+                    onAddNewPatient={() => setIsAddPatientModalOpen(true)}
+                    onOpenLinkPatientModal={() => setIsLinkPatientModalOpen(true)}
+                    onSelectPatient={handleSelectPatient}
+                    onUpdatePatientKey={handleUpdatePatientKey}
+                  />
+                )}
+
+                {caregiverTab === 'reminders' && (
+                  <CaregiverReminders
+                    reminders={reminders}
+                    onAddReminder={handleAddReminder}
+                    onToggleReminderEnabled={handleToggleReminderEnabled}
+                    onDeleteReminder={handleDeleteReminder}
+                    lang={lang}
+                  />
+                )}
+
+                {caregiverTab === 'memories' && (
+                  <CaregiverMemoriesManager
+                    patient={patient}
+                    memories={memories}
+                    onAddMemory={handleAddMemory}
+                    onDeleteMemory={handleDeleteMemory}
+                    lang={lang}
+                  />
+                )}
+
+                {caregiverTab === 'reports' && (
+                  <CaregiverReports
+                    patient={patient}
+                    sessions={sessions}
+                    reminders={reminders}
+                    routine={routine}
+                    lang={lang}
+                  />
+                )}
+
+                  {caregiverTab === 'me' && (
+                    <CaregiverMeProfile
+                      caretaker={activeCaretaker}
+                      onUpdateCaretaker={(updated) => {
+                        setActiveCaretaker(updated);
+                      }}
+                      patients={caregiverPatients}
+                      activePatientId={patient?.id || ''}
+                      onSelectPatient={handleSelectPatient}
+                      onOpenAddPatient={() => setIsAddPatientModalOpen(true)}
+                      onViewPatientDetail={(p) => {
+                        handleSelectPatient(p);
+                        setCaregiverTab('patient_detail');
+                      }}
+                      onUnlinkPatient={(pId) => {
+                        handleDeletePatient(pId);
+                      }}
+                      lang={lang}
+                      onLangChange={setLang}
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                      highContrast={highContrast}
+                      onToggleHighContrast={() => setHighContrast(!highContrast)}
+                      textScale={textScale}
+                      onTextScaleChange={setTextScale}
+                      onLogout={() => setIsLogoutConfirmOpen(true)}
+                      onOpenVoicePack={() => setIsVoicePackModalOpen(true)}
+                    />
+                  )}
+                </ErrorBoundary>
+              </div>
+            )}
+
+            {/* HEALTHCARE WORKER ROLE EXPERIENCE */}
+            {role === 'HEALTHCARE_WORKER' && (
+              <HealthcareDashboard
+                patient={patient}
+                sessions={sessions}
+                lang={lang}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Patient Bottom Navigation Bar (TRD Section 5 & 7: Simple navigation, predictable choice) */}
+      {role === 'PATIENT' && !activeGame && (
+        <nav
+          className="fixed bottom-0 inset-x-0 z-40 bg-[#FBF9F5]/98 dark:bg-[#161B22]/98 border-t border-stone-200 dark:border-stone-800 backdrop-blur-md py-2 px-4 shadow-lg transition-colors"
+          aria-label="Patient Primary Navigation"
+        >
+          <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
+            <button
+              onClick={() => setPatientTab('home')}
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-2xl transition ${
+                patientTab === 'home'
+                  ? 'text-teal-900 dark:text-teal-300 font-bold bg-teal-100/60 dark:bg-teal-950/60'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Home className="w-6 h-6 stroke-[2.2]" />
+              <span className="text-[11px] mt-1 font-semibold">{t.navHome}</span>
+            </button>
+
+            <button
+              onClick={() => setPatientTab('activities')}
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-2xl transition ${
+                patientTab === 'activities'
+                  ? 'text-teal-900 dark:text-teal-300 font-bold bg-teal-100/60 dark:bg-teal-950/60'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Sparkles className="w-6 h-6 stroke-[2.2]" />
+              <span className="text-[11px] mt-1 font-semibold">{t.navActivities}</span>
+            </button>
+
+            <button
+              onClick={() => setPatientTab('my_day')}
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-2xl transition ${
+                patientTab === 'my_day'
+                  ? 'text-teal-900 dark:text-teal-300 font-bold bg-teal-100/60 dark:bg-teal-950/60'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Calendar className="w-6 h-6 stroke-[2.2]" />
+              <span className="text-[11px] mt-1 font-semibold">{t.navMyDay}</span>
+            </button>
+
+            <button
+              onClick={() => setPatientTab('memories')}
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-2xl transition ${
+                patientTab === 'memories'
+                  ? 'text-teal-900 dark:text-teal-300 font-bold bg-teal-100/60 dark:bg-teal-950/60'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <Heart className="w-6 h-6 stroke-[2.2]" />
+              <span className="text-[11px] mt-1 font-semibold">{t.navMemories}</span>
+            </button>
+
+            <button
+              id="patient-nav-me-btn"
+              onClick={() => setPatientTab('me')}
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-2xl transition ${
+                patientTab === 'me' || patientTab === 'settings'
+                  ? 'text-teal-900 dark:text-teal-300 font-bold bg-teal-100/60 dark:bg-teal-950/60'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <User className="w-6 h-6 stroke-[2.2]" />
+              <span className="text-[11px] mt-1 font-semibold">{t.navMe}</span>
+            </button>
+          </div>
+        </nav>
+      )}
+
+      {/* Voice Assistant Interactive Modal */}
+      <VoiceAssistantModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        lang={lang}
+        onSelectGame={(gameId) => handleStartGame(gameId)}
+        onNavigateTab={(tab) => {
+          if (role === 'PATIENT') {
+            setPatientTab(tab as any);
+          }
+        }}
+      />
+
+      {/* Voice Clarity & Voice Pack Modal */}
+      <VoicePackModal
+        isOpen={isVoicePackModalOpen}
+        onClose={() => setIsVoicePackModalOpen(false)}
+        lang={lang}
+      />
+
+      {/* AI Caretaker Companion Modal (Voice & Text conversational companion) */}
+      <AICaretakerCompanion
+        isOpen={isAiCompanionOpen}
+        onClose={() => setIsAiCompanionOpen(false)}
+        patient={patient}
+        lang={lang}
+        routineCount={routine.filter((r) => r.completed).length}
+        routine={routine}
+        reminders={reminders}
+        memories={memories}
+      />
+
+      {/* Add / Register New Patient Modal */}
+      <AddPatientModal
+        isOpen={isAddPatientModalOpen}
+        onClose={() => setIsAddPatientModalOpen(false)}
+        onSave={handleSaveNewPatient}
+        currentCaretaker={activeCaretaker}
+        lang={lang}
+      />
+
+      {/* Link Existing Patient by Key Modal */}
+      <LinkPatientKeyModal
+        isOpen={isLinkPatientModalOpen}
+        onClose={() => setIsLinkPatientModalOpen(false)}
+        caretakerId={activeCaretaker?.id}
+        onPatientLinked={handleSelectPatient}
+      />
+
+      {/* Logout Confirmation Prompt Modal */}
+      <LogoutConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirmLogout={handleConfirmLogout}
+        userName={patient.preferredName || patient.fullName}
+      />
+
+      {/* Vercel Web Analytics */}
+      <Analytics />
+    </div>
+  );
+}

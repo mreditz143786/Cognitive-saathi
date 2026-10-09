@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Patients root documents and all scoped subcollections (sessions, routines, reminders, memories)
+    match /patients/{patientId} {
+      allow read, write: if true;
+
+      match /{allSubcollections=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Caregivers root documents
+    match /caregivers/{caregiverId} {
+      allow read, write: if true;
+    }
+
+    // Cross-device Caregiver Linking Keys
+    match /caregiverKeys/{key} {
+      allow read, write: if true;
+    }
+
+    // Cross-device Patient Linking Keys
+    match /patientKeys/{key} {
+      allow read, write: if true;
+    }
+
+    // System connectivity ping
+    match /system/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
