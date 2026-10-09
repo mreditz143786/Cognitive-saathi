@@ -1,10 +1,10 @@
-import React from 'react';
-import { Mic, User, ShieldCheck, HeartPulse, Type, LogOut, Lock, Heart, Sun, Moon, Volume2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mic, User, ShieldCheck, HeartPulse, Type, LogOut, Lock, Heart, Sun, Moon, Volume2, Info } from 'lucide-react';
 import { UserRole, LanguageCode, ConnectivityStatus, TextScale } from '../../types';
 import { translations } from '../../lib/i18n';
 import { ConnectivityBadge } from '../common/ConnectivityBadge';
 import { PWAInstallButton } from '../common/PWAInstallButton';
-import { LanguageDropdown } from '../common/LanguageDropdown';
+import { AboutModal } from '../common/AboutModal';
 
 interface HeaderProps {
   currentRole: UserRole;
@@ -15,6 +15,7 @@ interface HeaderProps {
   onSyncTrigger: () => void;
   onOpenVoice: () => void;
   onOpenVoicePack?: () => void;
+  onOpenAbout?: () => void;
   textScale: TextScale;
   onTextScaleChange: (scale: TextScale) => void;
   patientName?: string;
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSyncTrigger,
   onOpenVoice,
   onOpenVoicePack,
+  onOpenAbout,
   textScale,
   onTextScaleChange,
   patientName = 'Ramesh Sharma',
@@ -46,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
 }) => {
   const t = translations[lang];
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-[#FBF9F5]/95 dark:bg-[#141B22]/95 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800 transition-colors">
@@ -99,17 +102,20 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-semibold hidden sm:inline">Voice</span>
           </button>
 
-          {/* Voice Pack & Clarity Button */}
-          {onOpenVoicePack && (
-            <button
-              onClick={onOpenVoicePack}
-              className="p-2 rounded-full text-stone-600 dark:text-stone-300 hover:bg-stone-200/80 dark:hover:bg-stone-800 transition"
-              title="Voice Clarity & Sound Packs"
-              aria-label="Download Voice Pack"
-            >
-              <Volume2 className="w-4 h-4 text-teal-700 dark:text-teal-400" />
-            </button>
-          )}
+          {/* About Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenAbout) onOpenAbout();
+              else setIsAboutModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-900/80 transition cursor-pointer shadow-2xs"
+            title="About Cognitive Saathi"
+            aria-label="About Cognitive Saathi"
+          >
+            <Info className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <span className="hidden sm:inline">About</span>
+          </button>
 
           {/* Dark / Light Theme Toggle */}
           {onToggleTheme && (
@@ -159,12 +165,6 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Language selector with clean accessible custom popover */}
-          <LanguageDropdown
-            currentLang={lang}
-            onSelectLang={onLangChange}
-          />
-
           {/* If Caregiver/Staff mode: show role toggle between Caregiver and Healthcare Worker portals */}
           {currentRole !== 'PATIENT' && (
             <div className="flex items-center gap-1.5">
@@ -211,6 +211,11 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      <AboutModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
+      />
     </header>
   );
 };

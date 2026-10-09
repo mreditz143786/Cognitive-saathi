@@ -203,35 +203,28 @@ export const EditPatientProfileModal: React.FC<EditPatientProfileModalProps> = (
 
             <div className="space-y-1">
               <label htmlFor="edit-state" className="text-xs font-bold text-stone-700 block">
-                State (North-Eastern India)
+                State / Region
               </label>
-              <select
+              <input
                 id="edit-state"
+                type="text"
                 value={state}
-                onChange={(e) => setState(e.target.value as any)}
+                onChange={(e) => setState(e.target.value)}
+                placeholder="e.g. State or Region"
                 className="w-full p-3 rounded-2xl border border-stone-300 text-sm font-medium text-stone-900 focus:outline-teal-800 bg-stone-50/50"
-              >
-                <option value="Assam">Assam</option>
-                <option value="Manipur">Manipur</option>
-                <option value="Meghalaya">Meghalaya</option>
-                <option value="Nagaland">Nagaland</option>
-                <option value="Tripura">Tripura</option>
-                <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-                <option value="Mizoram">Mizoram</option>
-                <option value="Sikkim">Sikkim</option>
-              </select>
+              />
             </div>
           </div>
 
           {/* Region / Town */}
           <div className="space-y-1">
             <label htmlFor="edit-region" className="text-xs font-bold text-stone-700 block">
-              Town / Village / Region
+              Town / City / Neighborhood
             </label>
             <input
               id="edit-region"
               type="text"
-              placeholder="e.g. Uzan Bazar, Guwahati"
+              placeholder="e.g. City or Neighborhood"
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               className="w-full p-3 rounded-2xl border border-stone-300 text-sm font-medium text-stone-900 focus:outline-teal-800 bg-stone-50/50"

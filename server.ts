@@ -100,8 +100,8 @@ app.post('/api/auth/register', (req, res) => {
         pin: profile.pin || password.slice(0, 4),
         patientKey: userPatientKey,
         age: Number(profile.age) || 70,
-        region: profile.region?.trim() || 'Guwahati, Assam',
-        state: profile.state || 'Assam',
+        region: profile.region?.trim() || 'Home',
+        state: profile.state || '',
         preferredLanguage: profile.preferredLanguage || 'en',
         phone: cleanPhone,
         hasCaregiver: Boolean(profile.hasCaregiver || profile.linkedCaregiverKey),
@@ -555,7 +555,7 @@ app.post('/api/ai/companion', async (req, res) => {
 
     const ai = getAiClient();
     if (ai) {
-      const systemInstruction = `You are "Saathi", a deeply compassionate, authentic AI companion for an elderly person named ${patientName} living in Assam/Northeast India.
+      const systemInstruction = `You are "Saathi", a deeply compassionate, authentic AI companion for an elderly person named ${patientName}.
 You have access to Google Search.
 
 RULES:
@@ -663,7 +663,7 @@ app.post('/api/ai/suggest-routine', async (req, res) => {
       { title: 'Warm Herbal Tulsi Tea on Veranda', timeSlot: 'Morning', time: '07:30 AM', notes: 'Enjoy the soft morning sunlight and listen to garden birds.', category: 'HYDRATION' },
       { title: 'Blood Pressure & Heart Tablet Check', timeSlot: 'Morning', time: '08:30 AM', notes: 'Take with half glass of lukewarm water after breakfast.', category: 'HEALTH' },
       { title: 'Photo Album & Family Reminiscence', timeSlot: 'Afternoon', time: '03:30 PM', notes: 'Look at family photos together.', category: 'SOCIAL' },
-      { title: 'Calming Flute & Borgeet Music Listening', timeSlot: 'Evening', time: '07:00 PM', notes: 'Relaxing ambient music to ease evening sundowning.', category: 'ACTIVITY' },
+      { title: 'Calming Instrumental Music Listening', timeSlot: 'Evening', time: '07:00 PM', notes: 'Relaxing ambient music to ease evening sundowning.', category: 'ACTIVITY' },
     ],
   });
 });

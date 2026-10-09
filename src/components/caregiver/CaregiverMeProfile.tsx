@@ -770,23 +770,15 @@ export const CaregiverMeProfile: React.FC<CaregiverMeProfileProps> = ({
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100">App Language</h4>
-                <p className="text-[11px] text-stone-500 dark:text-stone-400">8 NER Regional Dialects supported</p>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">English (Default)</p>
               </div>
             </div>
             <select
-              value={lang}
-              onChange={(e) => onLangChange(e.target.value as LanguageCode)}
-              className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#161B22] text-xs font-bold text-stone-800 dark:text-stone-200 cursor-pointer shadow-2xs"
+              value="en"
+              disabled
+              className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-[#121820] text-xs font-bold text-stone-600 dark:text-stone-300 opacity-80 cursor-not-allowed shadow-2xs"
             >
-              <option value="en">English</option>
-              <option value="as">অসমীয়া (Assamese)</option>
-              <option value="bn">বাংলা (Bengali)</option>
-              <option value="hi">हिंदी (Hindi)</option>
-              <option value="mni">ꯃꯤꯇꯩꯂꯣꯟ (Manipuri)</option>
-              <option value="bho">Bodo</option>
-              <option value="lus">Mizo</option>
-              <option value="kha">Khasi</option>
-              <option value="gar">Garo</option>
+              <option value="en">English (Default)</option>
             </select>
           </div>
         </div>

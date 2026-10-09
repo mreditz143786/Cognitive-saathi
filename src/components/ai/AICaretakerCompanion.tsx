@@ -136,7 +136,7 @@ export const AICaretakerCompanion: React.FC<AICaretakerCompanionProps> = ({
           userData: {
             currentTime,
             timeOfDay: now.getHours() >= 18 ? 'Night' : now.getHours() >= 12 ? 'Afternoon' : 'Morning',
-            location: patient.region || 'Guwahati, Assam',
+            location: patient.region || 'Home',
             routines: routine || [],
             reminders: reminders || [],
             memories: memories || [],
@@ -205,7 +205,7 @@ export const AICaretakerCompanion: React.FC<AICaretakerCompanionProps> = ({
     { label: 'Where am I right now?', text: 'Where am I right now? Please remind me.' },
     { label: 'What is next in my day?', text: 'What is next in my routine today?' },
     { label: 'I feel a little anxious', text: 'I am feeling a little worried or confused.' },
-    { label: 'Tell me a calming story', text: 'Please tell me a gentle story about Assam or the tea gardens.' },
+    { label: 'Tell me a calming story', text: 'Please tell me a gentle, calming story about nature and peaceful times.' },
     { label: 'Is my family nearby?', text: 'Where is my family and are they okay?' },
   ];
 

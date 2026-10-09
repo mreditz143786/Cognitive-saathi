@@ -21,6 +21,7 @@ import {
   Globe,
   Sun,
   Moon,
+  Info,
 } from 'lucide-react';
 import { LanguageCode, PatientProfile, CaretakerProfile } from '../../types';
 import { translations } from '../../lib/i18n';
@@ -28,9 +29,9 @@ import { OfflineStore } from '../../lib/offlineStore';
 import { VoiceService } from '../../lib/voiceService';
 import { FirestoreService } from '../../lib/firestoreService';
 import { PhotoUploader } from '../common/PhotoUploader';
-import { LanguageDropdown } from '../common/LanguageDropdown';
 import { ForgotPinModal } from './ForgotPinModal';
 import { VoicePackModal } from '../voice/VoicePackModal';
+import { AboutModal } from '../common/AboutModal';
 
 interface LoginScreenProps {
   onLoginPatient: (patient: PatientProfile) => void;
@@ -40,18 +41,6 @@ interface LoginScreenProps {
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
 }
-
-const NER_STATES = [
-  'Assam',
-  'Manipur',
-  'Meghalaya',
-  'Mizoram',
-  'Nagaland',
-  'Tripura',
-  'Arunachal Pradesh',
-  'Sikkim',
-  'Other',
-];
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLoginPatient,
@@ -85,7 +74,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regUsername, setRegUsername] = useState('');
   const [regAge, setRegAge] = useState('');
   const [regPhone, setRegPhone] = useState('');
-  const [regState, setRegState] = useState('Assam');
+  const [regState, setRegState] = useState('');
   const [regPreferredLang, setRegPreferredLang] = useState<LanguageCode>(lang);
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -110,6 +99,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Background server sync on mount
@@ -284,8 +274,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
-    if (!regState) {
-      setErrorMsg('Please select your state/region.');
+    if (!regState.trim()) {
+      setErrorMsg('Please enter your city / region.');
       return;
     }
 
@@ -656,15 +646,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Voice Pack & Audio Quality Button */}
+          {/* About Button */}
           <button
             type="button"
-            onClick={() => setIsVoiceModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-900/80 transition cursor-pointer"
-            title="Download Voice Pack & Audio Tuning"
+            onClick={() => setIsAboutModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-900/80 transition cursor-pointer shadow-2xs"
+            title="About Cognitive Saathi"
+            aria-label="About Cognitive Saathi"
           >
-            <Volume2 className="w-4 h-4 text-amber-700 dark:text-amber-300" />
-            <span className="hidden sm:inline">Voice Pack</span>
+            <Info className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <span className="hidden sm:inline">About</span>
           </button>
 
           {/* Dark / Light Theme Toggle */}
@@ -683,8 +674,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               )}
             </button>
           )}
-
-          <LanguageDropdown currentLang={lang} onSelectLang={onLangChange} />
         </div>
       </header>
 
@@ -1011,19 +1000,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label htmlFor="reg-state" className="text-xs font-bold text-stone-700 dark:text-stone-300 block mb-1">
-                          State / Region <span className="text-rose-500">*</span>
+                          City / Region <span className="text-rose-500">*</span>
                         </label>
-                        <select
+                        <input
                           id="reg-state"
+                          type="text"
                           required
                           value={regState}
                           onChange={(e) => setRegState(e.target.value)}
+                          placeholder="e.g. City or Region"
                           className="w-full px-4 py-2.5 rounded-2xl border border-stone-300 dark:border-stone-600 text-sm font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-teal-600 focus:outline-none bg-stone-50/50 dark:bg-[#121820]"
-                        >
-                          {NER_STATES.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
+                        />
                       </div>
 
                       <div>
@@ -1033,14 +1020,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         <select
                           id="reg-language"
                           required
-                          value={regPreferredLang}
-                          onChange={(e) => setRegPreferredLang(e.target.value as LanguageCode)}
-                          className="w-full px-4 py-2.5 rounded-2xl border border-stone-300 dark:border-stone-600 text-sm font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-teal-600 focus:outline-none bg-stone-50/50 dark:bg-[#121820]"
+                          value="en"
+                          disabled
+                          className="w-full px-4 py-2.5 rounded-2xl border border-stone-300 dark:border-stone-600 text-sm font-semibold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-[#121820] opacity-80 cursor-not-allowed"
                         >
-                          <option value="en">English</option>
-                          <option value="as">অসমীয়া (Assamese)</option>
-                          <option value="hi">हिन्दी (Hindi)</option>
-                          <option value="mni">মৈতৈলোন্ (Manipuri)</option>
+                          <option value="en">English (Default)</option>
                         </select>
                       </div>
                     </div>
@@ -1407,9 +1391,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       />
 
       {/* Footer */}
-      <footer className="max-w-4xl w-full mx-auto text-center py-3 border-t border-stone-200/80 dark:border-stone-800 text-xs text-stone-500 dark:text-stone-400">
-        CognitiveSaathi • Memory Care, Daily Routines & Secure Database Access
+      <footer className="max-w-4xl w-full mx-auto text-center py-4 border-t border-stone-200/80 dark:border-stone-800 text-xs text-slate-500 dark:text-stone-400">
+        <p>© 2026 Cognitive Saathi. All rights reserved.</p>
       </footer>
+
+      {/* About Modal */}
+      <AboutModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
+      />
     </div>
   );
 };

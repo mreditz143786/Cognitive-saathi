@@ -287,7 +287,7 @@ export const CaretakerRoutineManager: React.FC<CaretakerRoutineManagerProps> = (
           <Calendar className="w-10 h-10 text-stone-400 mx-auto" />
           <h4 className="font-bold text-stone-700 text-sm">No tasks added to routine yet</h4>
           <p className="text-xs text-stone-500 max-w-md mx-auto">
-            Add individual tasks or choose from curated Northeast eldercare presets like morning tea, medication, hydration, and veranda strolls.
+            Add individual tasks or choose from curated daily living presets like morning tea, medication, hydration, and gentle strolls.
           </p>
           <button
             onClick={() => setShowBulkPresetsModal(true)}

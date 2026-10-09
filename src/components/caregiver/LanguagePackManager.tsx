@@ -89,8 +89,8 @@ export const LanguagePackManager: React.FC<LanguagePackManagerProps> = ({
             Language & Offline Voice Control
           </h3>
           <p className="text-teal-100/90 text-xs sm:text-sm leading-relaxed">
-            Manage the elder's spoken language, offline speech assets, and certified regional language packs.
-            CognitiveSaathi is architected for modular expansion across North-Eastern India without unverified machine translations.
+            Manage the elder's spoken language, offline speech assets, and verified language packs.
+            CognitiveSaathi is architected for modular multilingual support without unverified machine translations.
           </p>
         </div>
       </div>

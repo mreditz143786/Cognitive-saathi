@@ -1,7 +1,6 @@
 /**
  * CognitiveSaathi — Frontend Application
- * Problem Statement ID: 26003 (MDoNER)
- * AI-Based Cognitive Gaming and Memory Assistance Platform for Elderly Dementia Patients in NER
+ * AI-powered cognitive support and daily living companion for individuals living with mild cognitive impairment and dementia.
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -71,6 +70,7 @@ import { HealthcareDashboard } from './components/healthcare/HealthcareDashboard
 import { AddPatientModal } from './components/caregiver/AddPatientModal';
 import { LinkPatientKeyModal } from './components/caregiver/LinkPatientKeyModal';
 import { LogoutConfirmModal } from './components/common/LogoutConfirmModal';
+import { AboutModal } from './components/common/AboutModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { Bot, Lock } from 'lucide-react';
 const Analytics = () => null;
@@ -165,6 +165,7 @@ export default function App() {
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
   const [isVoicePackModalOpen, setIsVoicePackModalOpen] = useState<boolean>(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState<boolean>(false);
   const [isAiCompanionOpen, setIsAiCompanionOpen] = useState<boolean>(false);
 
   // Connectivity & Synchronization
@@ -1212,6 +1213,7 @@ export default function App() {
         onSyncTrigger={handleTriggerSync}
         onOpenVoice={() => setIsVoiceModalOpen(true)}
         onOpenVoicePack={() => setIsVoicePackModalOpen(true)}
+        onOpenAbout={() => setIsAboutModalOpen(true)}
         textScale={textScale}
         onTextScaleChange={setTextScale}
         patientName={patient.fullName}
@@ -1584,6 +1586,11 @@ export default function App() {
             )}
           </>
         )}
+
+        {/* Subtle Copyright Footer */}
+        <footer className="w-full text-center pt-8 pb-4 text-xs text-slate-500 dark:text-stone-400">
+          <p>© 2026 Cognitive Saathi. All rights reserved.</p>
+        </footer>
       </main>
 
       {/* Patient Bottom Navigation Bar (TRD Section 5 & 7: Simple navigation, predictable choice) */}
@@ -1712,6 +1719,12 @@ export default function App() {
         onClose={() => setIsLogoutConfirmOpen(false)}
         onConfirmLogout={handleConfirmLogout}
         userName={patient.preferredName || patient.fullName}
+      />
+
+      {/* About Cognitive Saathi Modal */}
+      <AboutModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
       />
 
       {/* Vercel Web Analytics */}

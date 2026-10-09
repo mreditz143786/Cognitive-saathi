@@ -1,6 +1,6 @@
 /**
  * CognitiveSaathi Types & Domain Models
- * Problem Statement ID: 26003 (MDoNER)
+ * AI-powered cognitive support and daily living companion for individuals living with mild cognitive impairment and dementia.
  */
 
 export type UserRole = 'PATIENT' | 'CAREGIVER' | 'HEALTHCARE_WORKER';
@@ -174,7 +174,7 @@ export interface PatientProfile {
   linkedCaregiverKey?: string;
   age: number;
   region: string;
-  state: 'Assam' | 'Manipur' | 'Meghalaya' | 'Nagaland' | 'Tripura' | 'Arunachal Pradesh' | 'Mizoram' | 'Sikkim' | string;
+  state: string;
   preferredLanguage: LanguageCode;
   fallbackLanguage?: LanguageCode;
   caregiverName: string;

@@ -110,21 +110,14 @@ export const PatientSettings: React.FC<PatientSettingsProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
             {[
-              { code: 'en', label: 'English' },
-              { code: 'as', label: 'অসমীয়া' },
-              { code: 'hi', label: 'हिन्दी' },
-              { code: 'mni', label: 'মৈতৈলোন্' },
+              { code: 'en', label: 'English (Default)' },
             ].map((item) => (
               <button
                 key={item.code}
                 onClick={() => onLangChange(item.code as LanguageCode)}
-                className={`py-3 px-3 rounded-2xl border text-sm font-semibold transition ${
-                  lang === item.code
-                    ? 'bg-teal-800 text-white border-teal-800 shadow-xs'
-                    : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200'
-                }`}
+                className="py-3 px-3 rounded-2xl border text-sm font-semibold transition bg-teal-800 text-white border-teal-800 shadow-xs"
               >
                 {item.label}
               </button>

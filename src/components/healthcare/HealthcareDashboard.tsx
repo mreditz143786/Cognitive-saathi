@@ -26,15 +26,15 @@ export const HealthcareDashboard: React.FC<HealthcareDashboardProps> = ({
               Community Cognitive Adherence Monitoring
             </h2>
             <p className="text-teal-200/80 text-sm leading-relaxed">
-              Longitudinal activity adherence, routine compliance, and observed baseline variance for North-Eastern Region outreach.
+              Longitudinal activity adherence, routine compliance, and observed baseline variance for community care outreach.
             </p>
           </div>
 
           <div className="bg-teal-900/80 border border-teal-800 p-4 rounded-2xl flex items-center gap-3">
             <HeartPulse className="w-8 h-8 text-amber-400 shrink-0" />
             <div className="text-xs">
-              <span className="text-teal-300 font-semibold uppercase block">Assigned District</span>
-              <p className="font-bold text-white text-sm">Kamrup Rural, Assam</p>
+              <span className="text-teal-300 font-semibold uppercase block">Care Centre</span>
+              <p className="font-bold text-white text-sm">Community Care Centre</p>
             </div>
           </div>
         </div>

@@ -21,7 +21,7 @@ interface ItemCard {
 const MEMORY_ITEMS: ItemCard[] = [
   { id: 'xorai', name: 'Bell-Metal Xorai', regionalName: 'শৰাই (Xorai)', emoji: '🏆', description: 'Traditional brass tray of respect' },
   { id: 'japi', name: 'Woven Bamboo Japi', regionalName: 'জাপি (Japi)', emoji: '👒', description: 'Traditional farmer & honor headgear' },
-  { id: 'tea', name: 'Assam Red Tea Cup', regionalName: 'ৰঙা চাহ (Lal Chai)', emoji: '☕', description: 'Warm fresh garden morning tea' },
+  { id: 'tea', name: 'Fresh Morning Tea Cup', regionalName: 'চাহ (Chai)', emoji: '☕', description: 'Warm fresh morning tea' },
   { id: 'glasses', name: 'Reading Glasses', regionalName: 'চশমা (Chashma)', emoji: '👓', description: 'Morning newspaper reading glasses' },
   { id: 'diya', name: 'Earthen Clay Diya', regionalName: 'মাটিৰ চাকি (Saki)', emoji: '🪔', description: 'Peaceful prayer evening lamp' },
   { id: 'gamusa', name: 'Woven Gamusa', regionalName: 'ফুলাম গামোচা (Gamusa)', emoji: '🧣', description: 'Traditional red and white handwoven towel' },

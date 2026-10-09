@@ -21,9 +21,9 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [preferredName, setPreferredName] = useState('');
   const [age, setAge] = useState<number | ''>('');
-  const [state, setState] = useState<PatientProfile['state']>('Assam');
+  const [state, setState] = useState<string>('');
   const [city, setCity] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>('as');
+  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>('en');
   const [phone, setPhone] = useState('');
   const [caregiverName, setCaregiverName] = useState(currentCaretaker?.fullName || '');
   const [caregiverPhone, setCaregiverPhone] = useState(currentCaretaker?.phone || '');
@@ -219,23 +219,16 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
 
             <div className="space-y-1">
               <label htmlFor="patient-state" className="text-xs font-bold text-stone-700 block">
-                State (North-East) *
+                State / Region
               </label>
-              <select
+              <input
                 id="patient-state"
+                type="text"
                 value={state}
-                onChange={(e) => setState(e.target.value as any)}
+                onChange={(e) => setState(e.target.value)}
+                placeholder="e.g. State or Region"
                 className="w-full p-3 rounded-2xl border border-stone-300 text-sm font-medium text-stone-900 focus:outline-teal-800 bg-stone-50/50"
-              >
-                <option value="Assam">Assam</option>
-                <option value="Manipur">Manipur</option>
-                <option value="Meghalaya">Meghalaya</option>
-                <option value="Nagaland">Nagaland</option>
-                <option value="Tripura">Tripura</option>
-                <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-                <option value="Mizoram">Mizoram</option>
-                <option value="Sikkim">Sikkim</option>
-              </select>
+              />
             </div>
 
             <div className="space-y-1">

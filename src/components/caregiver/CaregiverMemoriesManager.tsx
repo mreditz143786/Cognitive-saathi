@@ -47,7 +47,7 @@ const PRESET_IMAGE_TEMPLATES = [
   {
     label: 'Tea Gardens & River',
     url: 'https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?auto=format&fit=crop&q=80&w=800',
-    alt: 'Lush green tea estate landscape in Assam',
+    alt: 'Lush green landscape with morning sunshine',
     category: 'Place',
   },
   {
@@ -75,7 +75,7 @@ export const CaregiverMemoriesManager: React.FC<CaregiverMemoriesManagerProps> =
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Family');
   const [dateLabel, setDateLabel] = useState('');
-  const [region, setRegion] = useState(patient?.region || 'Assam');
+  const [region, setRegion] = useState(patient?.region || '');
   const [imageUrl, setImageUrl] = useState(PRESET_IMAGE_TEMPLATES[0].url);
   const [imageUrls, setImageUrls] = useState<string[]>([PRESET_IMAGE_TEMPLATES[0].url]);
   const [imageAlt, setImageAlt] = useState(PRESET_IMAGE_TEMPLATES[0].alt);
@@ -180,7 +180,7 @@ export const CaregiverMemoriesManager: React.FC<CaregiverMemoriesManagerProps> =
       id: `mem-${Date.now()}`,
       title: title.trim(),
       category: category as any,
-      region: region.trim() || patient.region || 'Assam',
+      region: region.trim() || patient.region || 'Home',
       imageUrl: finalUrls[0],
       imageUrls: finalUrls,
       imageAlt: imageAlt.trim() || title.trim(),
@@ -470,7 +470,7 @@ export const CaregiverMemoriesManager: React.FC<CaregiverMemoriesManagerProps> =
                   type="text"
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
-                  placeholder="e.g. Jorhat, Assam"
+                  placeholder="e.g. City or Region"
                   className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-sm font-semibold focus:ring-2 focus:ring-teal-700 focus:outline-hidden"
                 />
               </div>

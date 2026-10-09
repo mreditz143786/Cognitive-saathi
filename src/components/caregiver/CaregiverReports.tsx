@@ -196,7 +196,7 @@ export const CaregiverReports: React.FC<CaregiverReportsProps> = ({
             <p className="font-bold text-stone-900">
               Report Date: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
-            <p className="text-stone-500">Region: {patient.region || 'North-Eastern India'}</p>
+            <p className="text-stone-500">Region: {patient.region || 'Registered Care Circle'}</p>
           </div>
         </div>
 

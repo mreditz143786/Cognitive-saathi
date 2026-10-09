@@ -315,7 +315,7 @@ export const CaregiverActivitiesView: React.FC<CaregiverActivitiesViewProps> = (
                 {/* Header Badge & Level */}
                 <div className="flex items-center justify-between">
                   <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                    {game.culturalTag || 'NER HERITAGE'}
+                    {game.culturalTag || 'COGNITIVE MEMORY'}
                   </span>
                   <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 font-medium">
                     <span className="px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold text-[10px]">
@@ -433,7 +433,7 @@ export const CaregiverActivitiesView: React.FC<CaregiverActivitiesViewProps> = (
                   type="button"
                   onClick={() =>
                     handleTestVoiceNarration(
-                      'Listen carefully. Which heritage item brings memories of celebration in Assam?'
+                      'Listen carefully. Which cherished item brings memories of celebration with family?'
                     )
                   }
                   className="px-3 py-1 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 hover:bg-teal-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
